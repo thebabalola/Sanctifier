@@ -69,7 +69,7 @@ fn main() -> anyhow::Result<()> {
             if let Ok(content) = fs::read_to_string(&path) {
                 match sanctifier_core::kani_bridge::KaniBridge::translate_for_kani(&content) {
                     Ok(harness) => {
-                        if let Some(out_path) = output {
+                        if let Some(ref out_path) = output {
                             if let Err(e) = std::fs::write(out_path, harness) {
                                 eprintln!("❌ Failed to write Kani harness: {}", e);
                             } else {
