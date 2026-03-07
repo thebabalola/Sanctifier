@@ -15,7 +15,7 @@ pub trait Rule: Send + Sync + std::panic::UnwindSafe + std::panic::RefUnwindSafe
     fn as_any(&self) -> &dyn Any;
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleViolation {
     pub rule_name: String,
     pub severity: Severity,

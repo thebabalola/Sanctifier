@@ -26,7 +26,7 @@ where
 // ── Existing types ────────────────────────────────────────────────────────────
 
 /// Severity of a ledger size warning.
-#[derive(Debug, Serialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum SizeWarningLevel {
     /// Size exceeds the ledger entry limit (e.g. 64KB).
     ExceedsLimit,
@@ -34,7 +34,7 @@ pub enum SizeWarningLevel {
     ApproachingLimit,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SizeWarning {
     pub struct_name: String,
     pub estimated_size: usize,
@@ -42,7 +42,7 @@ pub struct SizeWarning {
     pub level: SizeWarningLevel,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PanicIssue {
     pub function_name: String,
     pub issue_type: String, // "panic!", "unwrap", "expect"
@@ -51,14 +51,14 @@ pub struct PanicIssue {
 
 // ── UnsafePattern types (visitor-based panic/unwrap scanning) ─────────────────
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum PatternType {
     Panic,
     Unwrap,
     Expect,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UnsafePattern {
     pub pattern_type: PatternType,
     pub line: usize,
@@ -67,7 +67,7 @@ pub struct UnsafePattern {
 
 // ── Upgrade analysis types ────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UpgradeFinding {
     pub category: UpgradeCategory,
     pub function_name: Option<String>,
@@ -76,7 +76,7 @@ pub struct UpgradeFinding {
     pub suggestion: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "snake_case")]
 pub enum UpgradeCategory {
     AdminControl,
@@ -87,7 +87,7 @@ pub enum UpgradeCategory {
 }
 
 /// Upgrade safety report.
-#[derive(Debug, Serialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct UpgradeReport {
     pub findings: Vec<UpgradeFinding>,
     pub upgrade_mechanisms: Vec<String>,
@@ -141,7 +141,7 @@ fn is_init_fn(name: &str) -> bool {
 // ── ArithmeticIssue (NEW) ─────────────────────────────────────────────────────
 
 /// Represents an unchecked arithmetic operation that could overflow or underflow.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ArithmeticIssue {
     /// Contract function in which the operation was found.
     pub function_name: String,
@@ -156,7 +156,7 @@ pub struct ArithmeticIssue {
 // ── StorageCollisionIssue (NEW) ──────────────────────────────────────────────
 
 /// Represents a potential storage key collision.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct StorageCollisionIssue {
     pub key_value: String,
     pub key_type: String,
@@ -164,7 +164,7 @@ pub struct StorageCollisionIssue {
     pub message: String,
 }
 
-#[derive(Debug, Serialize, Clone, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum EventIssueType {
     /// Topics count varies for the same event name.
     InconsistentSchema,
@@ -172,7 +172,7 @@ pub enum EventIssueType {
     OptimizableTopic,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EventIssue {
     pub function_name: String,
     pub event_name: String,
@@ -181,7 +181,7 @@ pub struct EventIssue {
     pub location: String,
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UnhandledResultIssue {
     pub function_name: String,
     pub call_expression: String,
@@ -201,7 +201,7 @@ pub struct CustomRule {
 }
 
 /// A match from a custom regex rule.
-#[derive(Debug, Serialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CustomRuleMatch {
     pub rule_name: String,
     pub line: usize,
@@ -1957,44 +1957,6 @@ mod tests {
         assert!(issues[0].suggestion.contains("checked_add"));
         // Location should include function name
         assert!(issues[0].location.starts_with("risky:"));
-    }
-    #[test]
-    fn test_custom_rules_with_severity() {
-        let config = SanctifyConfig {
-            custom_rules: vec![
-                CustomRule {
-                    name: "no_unsafe".to_string(),
-                    pattern: "unsafe".to_string(),
-                    severity: Severity::Error,
-                },
-                CustomRule {
-                    name: "todo_comment".to_string(),
-                    pattern: "TODO".to_string(),
-                    severity: Severity::Info,
-                },
-            ],
-            ..Default::default()
-        };
-        let analyzer = Analyzer::new(config);
-        let source = r#"
-            pub fn my_fn() {
-                // TODO: implement this
-                unsafe {
-                    let x = 1;
-                }
-            }
-        "#;
-        let matches = analyzer.analyze_custom_rules(source, &analyzer.config.custom_rules);
-        assert_eq!(matches.len(), 2);
-
-        let todo_match = matches
-            .iter()
-            .find(|m| m.rule_name == "todo_comment")
-            .unwrap();
-        assert_eq!(todo_match.severity, Severity::Info);
-
-        let unsafe_match = matches.iter().find(|m| m.rule_name == "no_unsafe").unwrap();
-        assert_eq!(unsafe_match.severity, Severity::Error);
     }
     #[test]
     fn test_custom_rules_with_severity() {

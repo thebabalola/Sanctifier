@@ -275,9 +275,9 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
         println!("\n⚠️ Found Custom Rule matches!");
         for m in custom_matches {
             let sev_icon = match m.severity {
-                sanctifier_core::RuleSeverity::Error => "❌",
-                sanctifier_core::RuleSeverity::Warning => "⚠️",
-                sanctifier_core::RuleSeverity::Info => "ℹ️",
+                sanctifier_core::Severity::Error => "❌",
+                sanctifier_core::Severity::Warning => "⚠️",
+                sanctifier_core::Severity::Info => "ℹ️",
             };
             println!("   {} [{}]: {}", sev_icon, m.rule_name.bold(), m.snippet);
         }
