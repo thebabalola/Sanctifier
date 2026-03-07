@@ -190,9 +190,6 @@ pub struct UnhandledResultIssue {
 }
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
-#[serde(rename_all = "snake_case")]
-
 
 /// User-defined regex-based rule. Defined in .sanctify.toml under [[custom_rules]].
 #[derive(Debug, Serialize, Deserialize, Clone)]
