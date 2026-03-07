@@ -471,3 +471,5 @@ fn is_soroban_project(path: &Path) -> bool {
     };
     cargo_toml_path.exists()
 }
+    Ok(())
+}
