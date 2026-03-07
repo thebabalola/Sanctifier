@@ -12,14 +12,5 @@ soroban-sdk = { version = "20.5.0", features = ["testutils"] }
 [features]
 testutils = ["soroban-sdk/testutils"]
 
-
 [lib]
-<<<<<<< HEAD
-crate-type = ["cdylib"]
-
-[dev-dependencies]
-soroban-sdk = { version = "20.0.0", features = ["testutils"] }
-
-=======
 crate-type = ["cdylib", "rlib"]
->>>>>>> feature/deprecated-host-fns
