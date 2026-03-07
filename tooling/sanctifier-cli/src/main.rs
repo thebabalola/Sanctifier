@@ -11,6 +11,9 @@ use sanctifier_core::zk_proof::ZkProofSummary;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+mod cache;
+use cache::{CacheManager, CachedAnalysisResult};
+
 
 #[derive(Serialize)]
 pub struct KaniVerificationMetrics {
@@ -89,6 +92,7 @@ fn main() {
             let mut config = load_config(path);
             config.ledger_limit = *limit;
 
+            let mut cache_manager = CacheManager::new(path);
             let analyzer = Analyzer::new(config.clone());
 
             let mut all_size_warnings: Vec<SizeWarning> = Vec::new();
@@ -105,6 +109,7 @@ fn main() {
                     path,
                     &analyzer,
                     &config,
+                    &mut cache_manager,
                     &mut all_size_warnings,
                     &mut all_unsafe_patterns,
                     &mut all_auth_gaps,
@@ -116,43 +121,80 @@ fn main() {
                 );
             } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
                 if let Ok(content) = fs::read_to_string(path) {
-                    all_size_warnings.extend(analyzer.analyze_ledger_size(&content));
+                    let hash = CacheManager::calculate_hash(&content);
+                    let mut used_cache = false;
 
-                    let patterns = analyzer.analyze_unsafe_patterns(&content);
-                    for mut p in patterns {
-                        p.snippet = format!("{}: {}", path.display(), p.snippet);
-                        all_unsafe_patterns.push(p);
+                    if let Some(entry) = cache_manager.get_file_entry(path) {
+                        if entry.hash == hash {
+                            all_size_warnings.extend(entry.results.size_warnings.clone());
+                            all_unsafe_patterns.extend(entry.results.unsafe_patterns.clone());
+                            all_auth_gaps.extend(entry.results.auth_gaps.clone());
+                            all_panic_issues.extend(entry.results.panic_issues.clone());
+                            all_arithmetic_issues.extend(entry.results.arithmetic_issues.clone());
+                            all_custom_rule_matches.extend(entry.results.custom_matches.clone());
+                            used_cache = true;
+                        }
                     }
 
-                    let gaps = analyzer.scan_auth_gaps(&content);
-                    for g in gaps {
-                        all_auth_gaps.push(format!("{}: {}", path.display(), g));
-                    }
+                    if !used_cache {
+                        let size_warnings = analyzer.analyze_ledger_size(&content);
+                        all_size_warnings.extend(size_warnings.clone());
 
-                    let panics = analyzer.scan_panics(&content);
-                    for p in panics {
-                        let mut p_mod = p.clone();
-                        p_mod.location = format!("{}: {}", path.display(), p.location);
-                        all_panic_issues.push(p_mod);
-                    }
+                        let patterns = analyzer.analyze_unsafe_patterns(&content);
+                        let mut local_patterns = Vec::new();
+                        for mut p in patterns {
+                            p.snippet = format!("{}: {}", path.display(), p.snippet);
+                            local_patterns.push(p.clone());
+                            all_unsafe_patterns.push(p);
+                        }
 
-                    let arith = analyzer.scan_arithmetic_overflow(&content);
-                    for mut a in arith {
-                        a.location = format!("{}: {}", path.display(), a.location);
-                        all_arithmetic_issues.push(a);
-                    }
+                        let gaps = analyzer.scan_auth_gaps(&content);
+                        let mut local_gaps = Vec::new();
+                        for g in gaps {
+                            let gap_msg = format!("{}: {}", path.display(), g);
+                            local_gaps.push(gap_msg.clone());
+                            all_auth_gaps.push(gap_msg);
+                        }
 
-                    /* let events = analyzer.scan_events(&content);
-                    for mut e in events {
-                        e.location = format!("{}: {}", path.display(), e.location);
-                        all_event_issues.push(e);
-                    } */
+                        let panics = analyzer.scan_panics(&content);
+                        let mut local_panics = Vec::new();
+                        for p in panics {
+                            let mut p_mod = p.clone();
+                            p_mod.location = format!("{}: {}", path.display(), p.location);
+                            local_panics.push(p_mod.clone());
+                            all_panic_issues.push(p_mod);
+                        }
 
-                    let custom_matches =
-                        analyzer.analyze_custom_rules(&content, &config.custom_rules);
-                    for mut m in custom_matches {
-                        m.snippet = format!("{}: {}", path.display(), m.snippet);
-                        all_custom_rule_matches.push(m);
+                        let arith = analyzer.scan_arithmetic_overflow(&content);
+                        let mut local_arith = Vec::new();
+                        for mut a in arith {
+                            a.location = format!("{}: {}", path.display(), a.location);
+                            local_arith.push(a.clone());
+                            all_arithmetic_issues.push(a);
+                        }
+
+                        let custom_matches =
+                            analyzer.analyze_custom_rules(&content, &config.custom_rules);
+                        let mut local_custom = Vec::new();
+                        for mut m in custom_matches {
+                            m.snippet = format!("{}: {}", path.display(), m.snippet);
+                            local_custom.push(m.clone());
+                            all_custom_rule_matches.push(m);
+                        }
+
+                        cache_manager.update_file_entry(
+                            path,
+                            hash,
+                            CachedAnalysisResult {
+                                size_warnings,
+                                unsafe_patterns: local_patterns,
+                                auth_gaps: local_gaps,
+                                panic_issues: local_panics,
+                                arithmetic_issues: local_arith,
+                                deprecated_issues: Vec::new(), // Placeholder for now
+                                custom_matches: local_custom,
+                            },
+                        );
                     }
 
                     let gas_reports = analyzer.scan_gas_estimation(&content);
@@ -164,6 +206,10 @@ fn main() {
                 eprintln!("{} Static analysis complete.", "✅".green());
             } else {
                 println!("{} Static analysis complete.", "✅".green());
+            }
+
+            if let Err(e) = cache_manager.save() {
+                eprintln!("{} Warning: Failed to save cache: {}", "⚠️".yellow(), e);
             }
 
             if format == "json" {
@@ -424,6 +470,7 @@ fn analyze_directory(
     dir: &Path,
     analyzer: &Analyzer,
     config: &SanctifyConfig,
+    cache_manager: &mut CacheManager,
     all_size_warnings: &mut Vec<SizeWarning>,
     all_unsafe_patterns: &mut Vec<UnsafePattern>,
     all_auth_gaps: &mut Vec<String>,
@@ -445,6 +492,7 @@ fn analyze_directory(
                     &path,
                     &analyzer,
                     config,
+                    cache_manager,
                     all_size_warnings,
                     all_unsafe_patterns,
                     all_auth_gaps,
@@ -456,47 +504,83 @@ fn analyze_directory(
                 );
             } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
                 if let Ok(content) = fs::read_to_string(&path) {
-                    let warnings = analyzer.analyze_ledger_size(&content);
-                    for mut w in warnings {
-                        w.struct_name = format!("{}: {}", path.display(), w.struct_name);
-                        all_size_warnings.push(w);
+                    let hash = CacheManager::calculate_hash(&content);
+                    let mut used_cache = false;
+
+                    if let Some(entry) = cache_manager.get_file_entry(&path) {
+                        if entry.hash == hash {
+                            all_size_warnings.extend(entry.results.size_warnings.clone());
+                            all_unsafe_patterns.extend(entry.results.unsafe_patterns.clone());
+                            all_auth_gaps.extend(entry.results.auth_gaps.clone());
+                            all_panic_issues.extend(entry.results.panic_issues.clone());
+                            all_arithmetic_issues.extend(entry.results.arithmetic_issues.clone());
+                            all_custom_rule_matches.extend(entry.results.custom_matches.clone());
+                            used_cache = true;
+                        }
                     }
 
-                    let patterns = analyzer.analyze_unsafe_patterns(&content);
-                    for mut p in patterns {
-                        p.snippet = format!("{}: {}", path.display(), p.snippet);
-                        all_unsafe_patterns.push(p);
-                    }
+                    if !used_cache {
+                        let warnings = analyzer.analyze_ledger_size(&content);
+                        for mut w in warnings.clone() {
+                            w.struct_name = format!("{}: {}", path.display(), w.struct_name);
+                            all_size_warnings.push(w);
+                        }
 
-                    let gaps = analyzer.scan_auth_gaps(&content);
-                    for g in gaps {
-                        all_auth_gaps.push(format!("{}: {}", path.display(), g));
-                    }
+                        let patterns = analyzer.analyze_unsafe_patterns(&content);
+                        let mut local_patterns = Vec::new();
+                        for mut p in patterns {
+                            p.snippet = format!("{}: {}", path.display(), p.snippet);
+                            local_patterns.push(p.clone());
+                            all_unsafe_patterns.push(p);
+                        }
 
-                    let panics = analyzer.scan_panics(&content);
-                    for p in panics {
-                        let mut p_mod = p.clone();
-                        p_mod.location = format!("{}: {}", path.display(), p.location);
-                        all_panic_issues.push(p_mod);
-                    }
+                        let gaps = analyzer.scan_auth_gaps(&content);
+                        let mut local_gaps = Vec::new();
+                        for g in gaps {
+                            let gap_msg = format!("{}: {}", path.display(), g);
+                            local_gaps.push(gap_msg.clone());
+                            all_auth_gaps.push(gap_msg);
+                        }
 
-                    let arith = analyzer.scan_arithmetic_overflow(&content);
-                    for mut a in arith {
-                        a.location = format!("{}: {}", path.display(), a.location);
-                        all_arithmetic_issues.push(a);
-                    }
+                        let panics = analyzer.scan_panics(&content);
+                        let mut local_panics = Vec::new();
+                        for p in panics {
+                            let mut p_mod = p.clone();
+                            p_mod.location = format!("{}: {}", path.display(), p.location);
+                            local_panics.push(p_mod.clone());
+                            all_panic_issues.push(p_mod);
+                        }
 
-                    /* let events = analyzer.scan_events(&content);
-                    for mut e in events {
-                        e.location = format!("{}: {}", path.display(), e.location);
-                        all_event_issues.push(e);
-                    } */
+                        let arith = analyzer.scan_arithmetic_overflow(&content);
+                        let mut local_arith = Vec::new();
+                        for mut a in arith {
+                            a.location = format!("{}: {}", path.display(), a.location);
+                            local_arith.push(a.clone());
+                            all_arithmetic_issues.push(a);
+                        }
 
-                    let custom_matches =
-                        analyzer.analyze_custom_rules(&content, &config.custom_rules);
-                    for mut m in custom_matches {
-                        m.snippet = format!("{}: {}", path.display(), m.snippet);
-                        all_custom_rule_matches.push(m);
+                        let custom_matches =
+                            analyzer.analyze_custom_rules(&content, &config.custom_rules);
+                        let mut local_custom = Vec::new();
+                        for mut m in custom_matches {
+                            m.snippet = format!("{}: {}", path.display(), m.snippet);
+                            local_custom.push(m.clone());
+                            all_custom_rule_matches.push(m);
+                        }
+
+                        cache_manager.update_file_entry(
+                            &path,
+                            hash,
+                            CachedAnalysisResult {
+                                size_warnings: warnings, // Raw warnings before structural path prefix
+                                unsafe_patterns: local_patterns,
+                                auth_gaps: local_gaps,
+                                panic_issues: local_panics,
+                                arithmetic_issues: local_arith,
+                                deprecated_issues: Vec::new(),
+                                custom_matches: local_custom,
+                            },
+                        );
                     }
 
                     let gas_reports = analyzer.scan_gas_estimation(&content);
