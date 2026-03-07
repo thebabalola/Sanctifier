@@ -192,12 +192,7 @@ pub struct UnhandledResultIssue {
 // ── Configuration ─────────────────────────────────────────────────────────────
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
 #[serde(rename_all = "snake_case")]
-pub enum RuleSeverity {
-    Info,
-    #[default]
-    Warning,
-    Error,
-}
+
 
 /// User-defined regex-based rule. Defined in .sanctify.toml under [[custom_rules]].
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -205,7 +200,7 @@ pub struct CustomRule {
     pub name: String,
     pub pattern: String,
     #[serde(default)]
-    pub severity: RuleSeverity,
+    pub severity: Severity,
 }
 
 /// A match from a custom regex rule.
@@ -214,7 +209,7 @@ pub struct CustomRuleMatch {
     pub rule_name: String,
     pub line: usize,
     pub snippet: String,
-    pub severity: RuleSeverity,
+    pub severity: Severity,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -1973,12 +1968,12 @@ mod tests {
                 CustomRule {
                     name: "no_unsafe".to_string(),
                     pattern: "unsafe".to_string(),
-                    severity: RuleSeverity::Error,
+                    severity: Severity::Error,
                 },
                 CustomRule {
                     name: "todo_comment".to_string(),
                     pattern: "TODO".to_string(),
-                    severity: RuleSeverity::Info,
+                    severity: Severity::Info,
                 },
             ],
             ..Default::default()
@@ -1999,10 +1994,10 @@ mod tests {
             .iter()
             .find(|m| m.rule_name == "todo_comment")
             .unwrap();
-        assert_eq!(todo_match.severity, RuleSeverity::Info);
+        assert_eq!(todo_match.severity, Severity::Info);
 
         let unsafe_match = matches.iter().find(|m| m.rule_name == "no_unsafe").unwrap();
-        assert_eq!(unsafe_match.severity, RuleSeverity::Error);
+        assert_eq!(unsafe_match.severity, Severity::Error);
     }
     #[test]
     fn test_custom_rules_with_severity() {
@@ -2011,12 +2006,12 @@ mod tests {
                 CustomRule {
                     name: "no_unsafe".to_string(),
                     pattern: "unsafe".to_string(),
-                    severity: RuleSeverity::Error,
+                    severity: Severity::Error,
                 },
                 CustomRule {
                     name: "todo_comment".to_string(),
                     pattern: "TODO".to_string(),
-                    severity: RuleSeverity::Info,
+                    severity: Severity::Info,
                 },
             ],
             ..Default::default()
@@ -2037,10 +2032,10 @@ mod tests {
             .iter()
             .find(|m| m.rule_name == "todo_comment")
             .unwrap();
-        assert_eq!(todo_match.severity, RuleSeverity::Info);
+        assert_eq!(todo_match.severity, Severity::Info);
 
         let unsafe_match = matches.iter().find(|m| m.rule_name == "no_unsafe").unwrap();
-        assert_eq!(unsafe_match.severity, RuleSeverity::Error);
+        assert_eq!(unsafe_match.severity, Severity::Error);
     }
 
     #[test]

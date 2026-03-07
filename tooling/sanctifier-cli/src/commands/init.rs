@@ -17,11 +17,13 @@ impl ConfigGenerator {
     pub fn generate_default_config() -> SanctifyConfig {
         SanctifyConfig {
             ignore_paths: vec!["target".to_string(), ".git".to_string()],
+            exclude: vec![],
             enabled_rules: vec![
                 "auth_gaps".to_string(),
                 "panics".to_string(),
                 "arithmetic".to_string(),
                 "ledger_size".to_string(),
+                "deprecated_host_fns".to_string(),
             ],
             ledger_limit: 64000,
             strict_mode: false,
@@ -29,12 +31,12 @@ impl ConfigGenerator {
                 CustomRule {
                     name: "no_unsafe_block".to_string(),
                     pattern: "unsafe\\s*\\{".to_string(),
-                    severity: sanctifier_core::RuleSeverity::Error,
+                    severity: sanctifier_core::Severity::Error,
                 },
                 CustomRule {
                     name: "no_mem_forget".to_string(),
                     pattern: "std::mem::forget".to_string(),
-                    severity: sanctifier_core::RuleSeverity::Warning,
+                    severity: sanctifier_core::Severity::Warning,
                 },
             ],
             approaching_threshold: 0.8,

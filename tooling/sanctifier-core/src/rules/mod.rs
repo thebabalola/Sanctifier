@@ -5,7 +5,7 @@ pub mod ledger_size;
 pub mod panic_detection;
 pub mod unhandled_result;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::any::Any;
 
 pub trait Rule: Send + Sync + std::panic::UnwindSafe + std::panic::RefUnwindSafe {
@@ -25,11 +25,13 @@ pub struct RuleViolation {
     pub suggestion: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum Severity {
-    Error,
-    Warning,
     Info,
+    #[default]
+    Warning,
+    Error,
 }
 
 impl RuleViolation {
