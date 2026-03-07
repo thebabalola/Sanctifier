@@ -7,8 +7,6 @@
 //! `Env`, `Address`, `Symbol`, etc. remains unverified due to Host type limitations.
 
 use soroban_sdk::{contract, contractimpl, symbol_short, Env, Symbol};
-<<<<<<< HEAD
-=======
 
 // ── Token initialisation pure logic (verified with Kani) ─────────────────────
 //
@@ -29,7 +27,6 @@ pub fn initialize_pure(is_initialized: bool) -> Result<(), &'static str> {
     }
     Ok(())
 }
->>>>>>> feature/deprecated-host-fns
 
 // ── Pure logic (verified with Kani) ─────────────────────────────────────────────
 //
@@ -83,8 +80,6 @@ impl TokenContract {
     /// A full implementation would read/write balances via env.storage().
     pub fn transfer(balance_from: i128, balance_to: i128, amount: i128) -> (i128, i128) {
         transfer_pure(balance_from, balance_to, amount).expect("transfer failed")
-<<<<<<< HEAD
-=======
     }
 
     /// One-shot initialisation entry point.
@@ -100,7 +95,6 @@ impl TokenContract {
             .unwrap_or(false);
         initialize_pure(already).expect("already initialized");
         env.storage().instance().set(&symbol_short!("init"), &true);
->>>>>>> feature/deprecated-host-fns
     }
 
     /// A function that interacts with Env (Host types).

@@ -7,12 +7,9 @@ import { exportToPdf } from "../lib/export-pdf";
 import { SeverityFilter } from "../components/SeverityFilter";
 import { FindingsList } from "../components/FindingsList";
 import { SummaryChart } from "../components/SummaryChart";
-<<<<<<< HEAD
-import { KaniMetricsWidget } from "../components/KaniMetricsWidget";
-=======
 import { SanctityScore } from "../components/SanctityScore";
 import { CallGraph } from "../components/CallGraph";
->>>>>>> feature/deprecated-host-fns
+import { KaniMetricsWidget } from "../components/KaniMetricsWidget";
 import { ThemeToggle } from "../components/ThemeToggle";
 import Link from "next/link";
 import { analyzeSourceInBrowser } from "../lib/wasm";
@@ -34,43 +31,33 @@ export default function DashboardPage() {
   const [severityFilter, setSeverityFilter] = useState<Severity | "all">("all");
   const [error, setError] = useState<string | null>(null);
   const [jsonInput, setJsonInput] = useState("");
-<<<<<<< HEAD
+  const [activeTab, setActiveTab] = useState<Tab>("findings");
   const [reportData, setReportData] = useState<AnalysisReport | null>(null);
   const [rustSource, setRustSource] = useState<string>("");
   const [wasmBusy, setWasmBusy] = useState(false);
-=======
-  const [activeTab, setActiveTab] = useState<Tab>("findings");
->>>>>>> feature/deprecated-host-fns
 
   const parseReport = useCallback((text: string) => {
     setError(null);
     try {
-<<<<<<< HEAD
-      const parsed = JSON.parse(jsonInput || SAMPLE_JSON) as AnalysisReport;
-      setFindings(transformReport(parsed));
-      setReportData(parsed);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Invalid JSON");
-      setFindings([]);
-      setReportData(null);
-=======
       const parsed = JSON.parse(text || SAMPLE_JSON) as AnalysisReport;
-
+      
       // Handle new CI/CD format with nested "findings" key
       const report = (parsed as Record<string, unknown>).findings
         ? ((parsed as Record<string, unknown>).findings as AnalysisReport)
         : parsed;
 
       setFindings(transformReport(report));
+      setReportData(report);
+      
       const { nodes, edges } = extractCallGraph(report);
       setCallGraphNodes(nodes);
       setCallGraphEdges(edges);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Invalid JSON");
       setFindings([]);
+      setReportData(null);
       setCallGraphNodes([]);
       setCallGraphEdges([]);
->>>>>>> feature/deprecated-host-fns
     }
   }, []);
 
@@ -85,25 +72,13 @@ export default function DashboardPage() {
     reader.onload = (ev) => {
       const text = ev.target?.result as string;
       setJsonInput(text);
-<<<<<<< HEAD
-      setError(null);
-      try {
-        const parsed = JSON.parse(text) as AnalysisReport;
-        setFindings(transformReport(parsed));
-        setReportData(parsed);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Invalid JSON");
-        setReportData(null);
-      }
-=======
       parseReport(text);
->>>>>>> feature/deprecated-host-fns
     };
     reader.readAsText(file);
     e.target.value = "";
   }, [parseReport]);
 
-  const hasData = findings.length > 0;
+  const hasData = findings.length > 0 || (reportData && reportData.kani_metrics);
 
   const runWasmAnalysis = useCallback(async () => {
     setError(null);
@@ -112,6 +87,9 @@ export default function DashboardPage() {
       const report = await analyzeSourceInBrowser(rustSource);
       setReportData(report);
       setFindings(transformReport(report));
+      const { nodes, edges } = extractCallGraph(report);
+      setCallGraphNodes(nodes);
+      setCallGraphEdges(edges);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(
@@ -177,7 +155,6 @@ export default function DashboardPage() {
           />
         </section>
 
-<<<<<<< HEAD
         <section className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
           <h2 className="text-lg font-semibold mb-4">Analyze Rust Source (Runs in Your Browser)</h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
@@ -200,29 +177,19 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {(findings.length > 0 || reportData?.kani_metrics) && (
-          <>
-            {reportData?.kani_metrics && (
-              <section>
-                <KaniMetricsWidget metrics={reportData.kani_metrics} />
-              </section>
-            )}
-
-            {findings.length > 0 && (
-              <section>
-                <SummaryChart findings={findings} />
-              </section>
-            )}
-=======
         {hasData && (
           <>
             <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <SanctityScore findings={findings} />
               <SummaryChart findings={findings} />
             </section>
->>>>>>> feature/deprecated-host-fns
 
-            {/* Tab navigation */}
+            {reportData?.kani_metrics && (
+              <section>
+                <KaniMetricsWidget metrics={reportData.kani_metrics} />
+              </section>
+            )}
+
             <div className="flex gap-2 border-b border-zinc-200 dark:border-zinc-700">
               <button
                 onClick={() => setActiveTab("findings")}
@@ -247,7 +214,7 @@ export default function DashboardPage() {
             </div>
 
             {activeTab === "findings" && (
-              <>
+              <div className="space-y-8">
                 <section>
                   <h2 className="text-lg font-semibold mb-4">Filter by Severity</h2>
                   <SeverityFilter selected={severityFilter} onChange={setSeverityFilter} />
@@ -257,7 +224,7 @@ export default function DashboardPage() {
                   <h2 className="text-lg font-semibold mb-4">Findings</h2>
                   <FindingsList findings={findings} severityFilter={severityFilter} />
                 </section>
-              </>
+              </div>
             )}
 
             {activeTab === "callgraph" && (
@@ -268,11 +235,7 @@ export default function DashboardPage() {
           </>
         )}
 
-<<<<<<< HEAD
-        {findings.length === 0 && !reportData?.kani_metrics && !error && (
-=======
         {!hasData && !error && (
->>>>>>> feature/deprecated-host-fns
           <p className="text-center text-zinc-500 dark:text-zinc-400 py-12">
             Load a report to view findings.
           </p>

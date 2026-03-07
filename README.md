@@ -1,14 +1,10 @@
 # Sanctifier 🛡️
 
-<<<<<<< HEAD
-**The Definitive Security & Formal Verification Suite for Stellar Soroban**
-=======
 <p align="center">
   <img src="branding/logo.png" width="300" alt="Sanctifier Logo">
 </p>
 
 **Sanctifier** is a comprehensive security and formal verification suite built specifically for [Stellar Soroban](https://soroban.stellar.org/) smart contracts. In the high-stakes environment of DeFi and decentralized applications, "code is law" only holds true if the code is secure. Sanctifier ensures your contracts are not just compiled, but *sanctified*—rigorously tested, formally verified, and runtime-guarded against vulnerabilities.
->>>>>>> feature/deprecated-host-fns
 
 Sanctifier is an institutional-grade security framework built to ensure that "Code is Law" remains a reality on the Stellar network. By combining **Static Analysis**, **Formal Verification (Kani)**, and **Runtime Guardians**, Sanctifier provides a multi-layered defense system for the next generation of DeFi and Fintech applications on Soroban.
 
@@ -57,9 +53,6 @@ Run an initial security audit on your project:
 sanctifier analyze ./contracts/my-project
 ```
 
-<<<<<<< HEAD
-## 🗺 Roadmap
-=======
 ### Update Sanctifier
 Check for and download the latest Sanctifier binary:
 
@@ -69,7 +62,6 @@ sanctifier update
 
 ## 🤝 Contributing
 We welcome contributions from the Stellar community! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
->>>>>>> feature/deprecated-host-fns
 
 Sanctifier is **Open-Source and Ecosystem-First**. Our 30+ issue roadmap covers everything from enhanced formal verification bridges to real-time security dashboards. See [Issues](https://github.com/Hypersecured/sanctifier/issues) for 'Good First Issues'.
 

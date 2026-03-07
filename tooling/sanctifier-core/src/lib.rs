@@ -646,7 +646,6 @@ impl Analyzer {
                 Item::Struct(s) => {
                     if has_contracttype(&s.attrs) {
                         let size = self.estimate_struct_size(s);
-<<<<<<< HEAD
                         if let Some(level) = classify_size(
                             size,
                             limit,
@@ -654,11 +653,6 @@ impl Analyzer {
                             strict,
                             strict_threshold,
                         ) {
-=======
-                        if let Some(level) =
-                            classify_size(size, limit, approaching_count, strict, strict_threshold)
-                        {
->>>>>>> feature/deprecated-host-fns
                             warnings.push(SizeWarning {
                                 struct_name: s.ident.to_string(),
                                 estimated_size: size,
@@ -671,7 +665,6 @@ impl Analyzer {
                 Item::Enum(e) => {
                     if has_contracttype(&e.attrs) {
                         let size = self.estimate_enum_size(e);
-<<<<<<< HEAD
                         if let Some(level) = classify_size(
                             size,
                             limit,
@@ -679,11 +672,6 @@ impl Analyzer {
                             strict,
                             strict_threshold,
                         ) {
-=======
-                        if let Some(level) =
-                            classify_size(size, limit, approaching_count, strict, strict_threshold)
-                        {
->>>>>>> feature/deprecated-host-fns
                             warnings.push(SizeWarning {
                                 struct_name: e.ident.to_string(),
                                 estimated_size: size,
@@ -802,16 +790,7 @@ impl Analyzer {
         let mut issue_locations: std::collections::HashSet<String> =
             std::collections::HashSet::new();
 
-<<<<<<< HEAD
-        let mut visitor = EventVisitor {
-            issues: Vec::new(),
-            current_fn: None,
-            event_schemas: std::collections::HashMap::new(),
-        };
-        visitor.visit_file(&file);
-        visitor.issues
-    } */
-=======
+        // Mixed strategy: use regex for speed, but prepared for visitor.
         for (line_num, line) in source.lines().enumerate() {
             let line = line.trim();
 
@@ -1986,40 +1965,44 @@ mod tests {
         // Location should include function name
         assert!(issues[0].location.starts_with("risky:"));
     }
-<<<<<<< HEAD
-
-    /*
-        #[test]
-        fn test_scan_events_consistency_and_optimization() {
-            let analyzer = Analyzer::new(SanctifyConfig::default());
-            let source = r#"
-                #[contractimpl]
-                impl MyContract {
-                    pub fn emit_events(env: Env) {
-                        // Consistent
-                        env.events().publish(("event1", 1), 100);
-                        env.events().publish(("event1", 2), 200);
-
-                        // Inconsistent
-                        env.events().publish(("event2", 1), 100);
-                        env.events().publish(("event2", 1, 2), 200);
-
-                        // Optimization opportunity
-                        env.events().publish(("long_event_name", "short"), 300);
-                    }
+    #[test]
+    fn test_custom_rules_with_severity() {
+        let config = SanctifyConfig {
+            custom_rules: vec![
+                CustomRule {
+                    name: "no_unsafe".to_string(),
+                    pattern: "unsafe".to_string(),
+                    severity: RuleSeverity::Error,
+                },
+                CustomRule {
+                    name: "todo_comment".to_string(),
+                    pattern: "TODO".to_string(),
+                    severity: RuleSeverity::Info,
+                },
+            ],
+            ..Default::default()
+        };
+        let analyzer = Analyzer::new(config);
+        let source = r#"
+            pub fn my_fn() {
+                // TODO: implement this
+                unsafe {
+                    let x = 1;
                 }
-            "#;
-            let issues = analyzer.scan_events(source);
+            }
+        "#;
+        let matches = analyzer.analyze_custom_rules(source, &analyzer.config.custom_rules);
+        assert_eq!(matches.len(), 2);
 
-            // One inconsistency for event2
-            assert!(issues.iter().any(|i| i.issue_type == EventIssueType::InconsistentSchema && i.event_name == "event2"));
-            // Optimization for "short"
-            assert!(issues.iter().any(|i| i.issue_type == EventIssueType::OptimizableTopic && i.message.contains("\"short\"")));
-            // Optimization for "event1"
-            assert!(issues.iter().any(|i| i.issue_type == EventIssueType::OptimizableTopic && i.message.contains("\"event1\"")));
-        }
-    */
-=======
+        let todo_match = matches
+            .iter()
+            .find(|m| m.rule_name == "todo_comment")
+            .unwrap();
+        assert_eq!(todo_match.severity, RuleSeverity::Info);
+
+        let unsafe_match = matches.iter().find(|m| m.rule_name == "no_unsafe").unwrap();
+        assert_eq!(unsafe_match.severity, RuleSeverity::Error);
+    }
     #[test]
     fn test_custom_rules_with_severity() {
         let config = SanctifyConfig {
