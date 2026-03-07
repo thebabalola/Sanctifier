@@ -327,6 +327,10 @@ impl Analyzer {
         self.rule_registry.available_rules()
     }
 
+    pub fn scan_deprecated_host_fns(&self, source: &str) -> Vec<RuleViolation> {
+        self.run_rule(source, "deprecated_host_fns")
+    }
+
     pub fn scan_auth_gaps(&self, source: &str) -> Vec<String> {
         with_panic_guard(|| self.scan_auth_gaps_impl(source))
     }
@@ -1624,7 +1628,7 @@ mod tests {
     fn test_analyze_with_limit() {
         let config = SanctifyConfig {
             ledger_limit: 50,
-
+            ..Default::default()
         };
         let analyzer = Analyzer::new(config);
         let source = r#"

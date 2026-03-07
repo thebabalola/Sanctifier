@@ -1,5 +1,6 @@
 pub mod arithmetic_overflow;
 pub mod auth_gap;
+pub mod deprecated_host_fns;
 pub mod ledger_size;
 pub mod panic_detection;
 pub mod unhandled_result;
@@ -93,6 +94,7 @@ impl RuleRegistry {
         registry.register(panic_detection::PanicDetectionRule::new());
         registry.register(arithmetic_overflow::ArithmeticOverflowRule::new());
         registry.register(unhandled_result::UnhandledResultRule::new());
+        registry.register(deprecated_host_fns::DeprecatedHostFnRule::new());
         registry
     }
 }

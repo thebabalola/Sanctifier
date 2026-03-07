@@ -68,6 +68,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
     let mut auth_gaps = Vec::new();
     let mut panic_issues = Vec::new();
     let mut arithmetic_issues = Vec::new();
+    let mut deprecated_issues = Vec::new();
     let mut custom_matches = Vec::new();
 
     if path.is_dir() {
@@ -80,6 +81,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             &mut auth_gaps,
             &mut panic_issues,
             &mut arithmetic_issues,
+            &mut deprecated_issues,
             &mut custom_matches,
         )?;
     } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
@@ -90,6 +92,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             auth_gaps.extend(analyzer.scan_auth_gaps(&content));
             panic_issues.extend(analyzer.scan_panics(&content));
             arithmetic_issues.extend(analyzer.scan_arithmetic_overflow(&content));
+            deprecated_issues.extend(analyzer.scan_deprecated_host_fns(&content));
             custom_matches
                 .extend(analyzer.analyze_custom_rules(&content, &analyzer.config.custom_rules));
         }
@@ -101,6 +104,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
         + auth_gaps.len()
         + panic_issues.len()
         + arithmetic_issues.len()
+        + deprecated_issues.len()
         + custom_matches.len();
 
     let has_critical =
@@ -125,6 +129,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
                 "auth_gaps": auth_gaps.len(),
                 "panic_issues": panic_issues.len(),
                 "arithmetic_issues": arithmetic_issues.len(),
+                "deprecated_issues": deprecated_issues.len(),
                 "size_warnings": size_warnings.len(),
                 "unsafe_patterns": unsafe_patterns.len(),
                 "custom_rule_matches": custom_matches.len(),
@@ -138,6 +143,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
                 "auth_gaps": auth_gaps,
                 "panic_issues": panic_issues,
                 "arithmetic_issues": arithmetic_issues,
+                "deprecated_host_fns": deprecated_issues,
                 "custom_rules": custom_matches,
             },
         });
@@ -189,6 +195,19 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
         println!("\n{} Found unchecked Arithmetic Operations!", "⚠️".yellow());
         for issue in arithmetic_issues {
             println!("   {} Op: {}", "->".red(), issue.operation.bold());
+            println!("      Location: {}", issue.location);
+        }
+    }
+
+    if deprecated_issues.is_empty() {
+        println!("{} No deprecated Soroban host functions found.", "✅".green());
+    } else {
+        println!(
+            "\n{} Found usage of Deprecated Host Functions!",
+            "⚠️".yellow()
+        );
+        for issue in deprecated_issues {
+            println!("   {} {}", "->".red(), issue.message.bold());
             println!("      Location: {}", issue.location);
         }
     }
@@ -264,6 +283,7 @@ fn walk_dir(
     auth_gaps: &mut Vec<String>,
     panic_issues: &mut Vec<sanctifier_core::PanicIssue>,
     arithmetic_issues: &mut Vec<sanctifier_core::ArithmeticIssue>,
+    deprecated_issues: &mut Vec<sanctifier_core::RuleViolation>,
     custom_matches: &mut Vec<sanctifier_core::CustomRuleMatch>,
 ) -> anyhow::Result<()> {
     for entry in fs::read_dir(dir)? {
@@ -289,6 +309,7 @@ fn walk_dir(
                 auth_gaps,
                 panic_issues,
                 arithmetic_issues,
+                deprecated_issues,
                 custom_matches,
             )?;
         } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
@@ -324,6 +345,12 @@ fn walk_dir(
                 for i in &mut a {
                     i.location = format!("{}:{}", file_name, i.location);
                     arithmetic_issues.push(i.clone());
+                }
+
+                let mut d = analyzer.scan_deprecated_host_fns(&content);
+                for i in &mut d {
+                    i.location = format!("{}:{}", file_name, i.location);
+                    deprecated_issues.push(i.clone());
                 }
 
                 let mut custom =
