@@ -187,6 +187,14 @@ fn analyze_directory(
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
+                // Skip ignore_paths and exclude
+                let is_ignored = analyzer.config.ignore_paths.iter().any(|p| path.ends_with(p));
+                let is_excluded = analyzer.config.exclude.iter().any(|p| path.ends_with(p));
+                
+                if is_ignored || is_excluded {
+                    continue;
+                }
+
                 analyze_directory(
                     &path, analyzer, all_size_warnings, all_unsafe_patterns, all_auth_gaps,
                     all_panic_issues, all_arithmetic_issues,

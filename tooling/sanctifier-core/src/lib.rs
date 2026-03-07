@@ -198,6 +198,8 @@ pub struct CustomRuleMatch {
 pub struct SanctifyConfig {
     #[serde(default = "default_ignore_paths")]
     pub ignore_paths: Vec<String>,
+    #[serde(default = "default_exclude_paths")]
+    pub exclude: Vec<String>,
     #[serde(default = "default_enabled_rules")]
     pub enabled_rules: Vec<String>,
     #[serde(default = "default_ledger_limit")]
@@ -212,6 +214,10 @@ pub struct SanctifyConfig {
 
 fn default_ignore_paths() -> Vec<String> {
     vec!["target".to_string(), ".git".to_string()]
+}
+
+fn default_exclude_paths() -> Vec<String> {
+    vec![]
 }
 
 fn default_enabled_rules() -> Vec<String> {
@@ -236,6 +242,7 @@ impl Default for SanctifyConfig {
     fn default() -> Self {
         Self {
             ignore_paths: default_ignore_paths(),
+            exclude: default_exclude_paths(),
             enabled_rules: default_enabled_rules(),
             ledger_limit: default_ledger_limit(),
             approaching_threshold: default_approaching_threshold(),

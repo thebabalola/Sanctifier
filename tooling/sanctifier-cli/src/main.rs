@@ -438,7 +438,10 @@ fn analyze_directory(
             let path = entry.path();
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
             if path.is_dir() {
-                if config.ignore_paths.iter().any(|p| name.contains(p)) {
+                let is_ignored = config.ignore_paths.iter().any(|p| path.ends_with(p));
+                let is_excluded = config.exclude.iter().any(|p| path.ends_with(p));
+                
+                if is_ignored || is_excluded {
                     continue;
                 }
                 analyze_directory(
