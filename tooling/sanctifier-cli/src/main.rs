@@ -1,11 +1,12 @@
 use clap::{Parser, Subcommand};
 use colored::*;
 use serde::{Deserialize, Serialize};
-use sanctifier_core::{
-    Analyzer, ArithmeticIssue, CustomRuleMatch, EventIssue, EventIssueType, SanctifyConfig,
-    SizeWarning, UnsafePattern, UpgradeCategory, UpgradeReport,
-};
 use sanctifier_core::gas_estimator::GasEstimationReport;
+use sanctifier_core::{
+    Analyzer, ArithmeticIssue, CustomRuleMatch, SanctifyConfig, SizeWarning, UnsafePattern,
+    UpgradeReport,
+};
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -36,11 +37,19 @@ pub enum Commands {
         #[arg(short, long, default_value_t = 64000)]
         limit: usize,
     },
+    /// Generate a summary report
     Report {
         #[arg(short, long, value_name = "OUTPUT")]
         output: Option<PathBuf>,
     },
+    /// Initialize a new Sanctifier project
     Init,
+    /// Translate Soroban contract into a Kani-verifiable harness
+    Kani {
+        path: PathBuf,
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
 }
 
 fn main() {
@@ -86,7 +95,6 @@ fn main() {
             let mut all_auth_gaps: Vec<String> = Vec::new();
             let mut all_panic_issues: Vec<sanctifier_core::PanicIssue> = Vec::new();
             let mut all_arithmetic_issues: Vec<ArithmeticIssue> = Vec::new();
-            let mut all_event_issues: Vec<EventIssue> = Vec::new();
             let mut all_custom_rule_matches: Vec<CustomRuleMatch> = Vec::new();
             let mut all_gas_estimations: Vec<GasEstimationReport> = Vec::new();
             let mut upgrade_report = UpgradeReport::empty();
@@ -101,7 +109,6 @@ fn main() {
                     &mut all_auth_gaps,
                     &mut all_panic_issues,
                     &mut all_arithmetic_issues,
-                    &mut all_event_issues,
                     &mut all_custom_rule_matches,
                     &mut all_gas_estimations,
                     &mut upgrade_report,
@@ -140,7 +147,8 @@ fn main() {
                         all_event_issues.push(e);
                     } */
 
-                    let custom_matches = analyzer.analyze_custom_rules(&content, &config.custom_rules);
+                    let custom_matches =
+                        analyzer.analyze_custom_rules(&content, &config.custom_rules);
                     for mut m in custom_matches {
                         m.snippet = format!("{}: {}", path.display(), m.snippet);
                         all_custom_rule_matches.push(m);
@@ -164,7 +172,6 @@ fn main() {
                     "auth_gaps": all_auth_gaps,
                     "panic_issues": all_panic_issues,
                     "arithmetic_issues": all_arithmetic_issues,
-                    "event_issues": all_event_issues,
                     "custom_rule_matches": all_custom_rule_matches,
                     "gas_estimations": all_gas_estimations,
                     "upgrade_report": upgrade_report,
@@ -186,8 +193,12 @@ fn main() {
                     println!("\n{} Found Ledger Size Warnings!", "⚠️".yellow());
                     for warning in all_size_warnings {
                         let (icon, msg) = match warning.level {
-                            sanctifier_core::SizeWarningLevel::ExceedsLimit => ("🛑".red(), "EXCEEDS".red().bold()),
-                            sanctifier_core::SizeWarningLevel::ApproachingLimit => ("⚠️".yellow(), "is approaching".yellow()),
+                            sanctifier_core::SizeWarningLevel::ExceedsLimit => {
+                                ("🛑".red(), "EXCEEDS".red().bold())
+                            }
+                            sanctifier_core::SizeWarningLevel::ApproachingLimit => {
+                                ("⚠️".yellow(), "is approaching".yellow())
+                            }
                         };
                         println!(
                             "   {} {} {} the ledger entry size limit!",
@@ -246,25 +257,6 @@ fn main() {
                     }
                 } else {
                     println!("\nNo arithmetic overflow risks found.");
-                }
-
-                if !all_event_issues.is_empty() {
-                    println!("\n{} Found Event Consistency Issues!", "🔔".blue());
-                    for issue in all_event_issues {
-                        let icon = match issue.issue_type {
-                            EventIssueType::InconsistentSchema => "⚠️".yellow(),
-                            EventIssueType::OptimizableTopic => "💡".blue(),
-                        };
-                        println!(
-                            "   {} Function {}: {} ({})",
-                            icon,
-                            issue.function_name.bold(),
-                            issue.message,
-                            issue.location
-                        );
-                    }
-                } else {
-                    println!("\nNo event consistency issues found.");
                 }
 
                 if !all_custom_rule_matches.is_empty() {
@@ -326,9 +318,43 @@ fn main() {
             } else {
                 println!("Report printed to stdout.");
             }
-
         }
         Commands::Init => {}
+        Commands::Kani { path, output } => {
+            if path.extension().and_then(|s| s.to_str()) != Some("rs") {
+                eprintln!(
+                    "{} Error: Kani bridge currently only supports single .rs files.",
+                    "❌".red()
+                );
+                std::process::exit(1);
+            }
+            if let Ok(content) = fs::read_to_string(path) {
+                match sanctifier_core::kani_bridge::KaniBridge::translate_for_kani(&content) {
+                    Ok(harness) => {
+                        if let Some(out_path) = output {
+                            if let Err(e) = std::fs::write(out_path, harness) {
+                                eprintln!("{} Failed to write Kani harness: {}", "❌".red(), e);
+                            } else {
+                                println!(
+                                    "{} Generated Kani harness at {:?}",
+                                    "✅".green(),
+                                    out_path
+                                );
+                            }
+                        } else {
+                            println!("{}", harness);
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("{} Error generating Kani harness: {}", "❌".red(), e);
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                eprintln!("{} Error reading file {:?}", "❌".red(), path);
+                std::process::exit(1);
+            }
+        }
     }
 }
 
@@ -366,7 +392,6 @@ fn analyze_directory(
     all_auth_gaps: &mut Vec<String>,
     all_panic_issues: &mut Vec<sanctifier_core::PanicIssue>,
     all_arithmetic_issues: &mut Vec<ArithmeticIssue>,
-    all_event_issues: &mut Vec<EventIssue>,
     all_custom_rule_matches: &mut Vec<CustomRuleMatch>,
     all_gas_estimations: &mut Vec<GasEstimationReport>,
     upgrade_report: &mut UpgradeReport,
@@ -388,7 +413,6 @@ fn analyze_directory(
                     all_auth_gaps,
                     all_panic_issues,
                     all_arithmetic_issues,
-                    all_event_issues,
                     all_custom_rule_matches,
                     all_gas_estimations,
                     upgrade_report,
@@ -431,7 +455,8 @@ fn analyze_directory(
                         all_event_issues.push(e);
                     } */
 
-                    let custom_matches = analyzer.analyze_custom_rules(&content, &config.custom_rules);
+                    let custom_matches =
+                        analyzer.analyze_custom_rules(&content, &config.custom_rules);
                     for mut m in custom_matches {
                         m.snippet = format!("{}: {}", path.display(), m.snippet);
                         all_custom_rule_matches.push(m);
@@ -442,7 +467,10 @@ fn analyze_directory(
                 }
             }
         }
-        fn collect_rs_files(path: &PathBuf) -> Vec<PathBuf> {
+    }
+}
+
+fn collect_rs_files(path: &std::path::PathBuf) -> Vec<std::path::PathBuf> {
     let mut files = Vec::new();
     if path.is_file() && path.extension().map_or(false, |e| e == "rs") {
         files.push(path.clone());
@@ -450,7 +478,11 @@ fn analyze_directory(
         if let Ok(entries) = std::fs::read_dir(path) {
             for entry in entries.flatten() {
                 let p = entry.path();
-                let name = p.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let name = p
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 if p.is_dir() && name != "target" && name != ".git" {
                     files.extend(collect_rs_files(&p));
                 } else if p.extension().map_or(false, |e| e == "rs") {
@@ -461,14 +493,11 @@ fn analyze_directory(
     }
     files
 }
-    }
-    
-}
 
 fn load_config(path: &Path) -> SanctifyConfig {
     find_config_path(path)
         .and_then(|p| fs::read_to_string(p).ok())
-        .and_then(|content| toml::from_str(&content).ok())
+        .and_then(|content| toml::from_str::<SanctifyConfig>(&content).ok())
         .unwrap_or_default()
 }
 
