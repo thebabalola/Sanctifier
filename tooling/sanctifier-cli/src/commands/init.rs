@@ -125,10 +125,9 @@ mod tests {
         // Verify ignore_paths
         assert_eq!(config.ignore_paths, vec!["target", ".git"]);
 
-        // Verify enabled_rules
         assert_eq!(
             config.enabled_rules,
-            vec!["auth_gaps", "panics", "arithmetic", "ledger_size"]
+            vec!["auth_gaps", "panics", "arithmetic", "ledger_size", "deprecated_host_fns"]
         );
 
         // Verify ledger_limit
