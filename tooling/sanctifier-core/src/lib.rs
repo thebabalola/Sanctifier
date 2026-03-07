@@ -856,7 +856,6 @@ impl Analyzer {
         issues
     }
 
->>>>>>> feature/deprecated-host-fns
     // ── Unsafe-pattern visitor ────────────────────────────────────────────────
 
     /// Visitor-based scan for `panic!`, `.unwrap()`, `.expect()` with line
@@ -2726,5 +2725,4 @@ mod tests {
         let collisions = analyzer.scan_storage_collisions(source);
         assert!(collisions.is_empty());
     }
->>>>>>> feature/deprecated-host-fns
 }
