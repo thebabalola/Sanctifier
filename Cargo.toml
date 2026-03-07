@@ -5,8 +5,12 @@ members = [
     "tooling/sanctifier-wasm",
     "contracts/vulnerable-contract",
     "contracts/kani-poc",
+    "contracts/amm-pool",
 ]
 resolver = "2"
+
+[workspace.package]
+rust-version = "1.78"
 
 [profile.release]
 opt-level = "z"

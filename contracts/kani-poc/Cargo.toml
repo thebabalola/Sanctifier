@@ -4,7 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-soroban-sdk = "20.0.0"
+soroban-sdk = "20.5.0"
+
+[dev-dependencies]
+soroban-sdk = { version = "20.5.0", features = ["testutils"] }
+
+[features]
+testutils = ["soroban-sdk/testutils"]
 
 
 [lints.rust]
@@ -12,6 +18,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+<<<<<<< HEAD
 
 [profile.release]
 opt-level = "z"
@@ -20,3 +27,5 @@ codegen-units = 1
 
 [dev-dependencies]
 soroban-sdk = { version = "20.0.0", features = ["testutils"] }
+=======
+>>>>>>> feature/deprecated-host-fns
