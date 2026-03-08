@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use clap::Args;
 use colored::*;
-use sanctifier_core::{Analyzer, ArithmeticIssue, SizeWarning, UnsafePattern};
+use sanctifier_core::{Analyzer, ArithmeticIssue, RuleViolation, SizeWarning, UnsafePattern};
 
 #[derive(Args, Debug)]
 pub struct AnalyzeArgs {
@@ -49,6 +49,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
     let mut all_auth_gaps: Vec<String> = Vec::new();
     let mut all_panic_issues = Vec::new();
     let mut all_arithmetic_issues: Vec<ArithmeticIssue> = Vec::new();
+    let mut all_deprecated_issues: Vec<RuleViolation> = Vec::new();
 
     if path.is_dir() {
         analyze_directory(
@@ -59,6 +60,7 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             &mut all_auth_gaps,
             &mut all_panic_issues,
             &mut all_arithmetic_issues,
+            &mut all_deprecated_issues,
         );
     } else if path.extension().and_then(|s| s.to_str()) == Some("rs") {
         if let Ok(content) = fs::read_to_string(path) {
@@ -155,6 +157,19 @@ pub fn exec(args: AnalyzeArgs) -> anyhow::Result<()> {
             println!("\nNo arithmetic overflow risks found.");
         }
         
+        if !all_deprecated_issues.is_empty() {
+            println!("\n{} Found deprecated Soroban host functions!", "⚠️".yellow());
+            for issue in all_deprecated_issues {
+                println!(
+                    "   -> Function: {}\n      Suggestion: {}",
+                    issue.location.yellow(),
+                    issue.message.cyan()
+                );
+            }
+        } else {
+            println!("\n{} No deprecated Soroban host functions found.", "✅".green());
+        }
+
         println!("\nNo upgrade pattern issues found.");
     }
     
@@ -182,6 +197,7 @@ fn analyze_directory(
     all_auth_gaps: &mut Vec<String>,
     all_panic_issues: &mut Vec<sanctifier_core::PanicIssue>,
     all_arithmetic_issues: &mut Vec<ArithmeticIssue>,
+    all_deprecated_issues: &mut Vec<RuleViolation>,
 ) {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -217,6 +233,12 @@ fn analyze_directory(
                     for mut a in arith {
                         a.location = format!("{}: {}", path.display(), a.location);
                         all_arithmetic_issues.push(a);
+                    }
+
+                    let deprecated = analyzer.scan_deprecated_host_fns(&content);
+                    for mut d in deprecated {
+                        d.location = format!("{}:{}", path.display(), d.location);
+                        all_deprecated_issues.push(d);
                     }
                 }
             }
