@@ -1,6 +1,7 @@
 pub mod gas_estimator;
 pub mod kani_bridge;
 pub mod zk_proof;
+pub mod rules;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -8,6 +9,8 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use syn::spanned::Spanned;
 use syn::visit::{self, Visit};
 use syn::{parse_str, Fields, File, Item, Meta, Type};
+
+pub use rules::{Rule, RuleRegistry, RuleViolation, Severity};
 
 #[cfg(not(target_arch = "wasm32"))]
 use soroban_sdk::Env;
@@ -834,6 +837,10 @@ impl Analyzer {
             }
             _ => 8,
         }
+    }
+
+    pub fn scan_deprecated_host_fns(&self, source: &str) -> Vec<RuleViolation> {
+        crate::rules::deprecated_host_fns::DeprecatedHostFnRule::new().check(source)
     }
 }
 
